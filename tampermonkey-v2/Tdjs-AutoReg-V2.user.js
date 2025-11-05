@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Tdjs-AutoReg V2 - Vsphone Auto Sign-up with Referral System
 // @namespace    http://tampermonkey.net/
-// @version      2.0.0
-// @description  Complete automation for vsphone.com sign-ups with referral link management (3 accounts per link) and verification code auto-fill
+// @version      2.1.0
+// @description  FULLY AUTOMATED: Click referral → 3 accounts created automatically → ReffBuff complete! Floating ball menu design.
 // @author       Tdjs
 // @match        https://cloud.vsphone.com/*
 // @match        https://www.vsphone.com/*
@@ -11,6 +11,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_listValues
+// @grant        GM_openInTab
 // @connect      api.mail.tm
 // @run-at       document-end
 // ==/UserScript==
@@ -25,6 +26,12 @@
     const PASSWORD = 'TdjsCloudPhone0909';
     const MAX_ACCOUNTS_PER_REFERRAL = 3;
     const INBOX_CHECK_INTERVAL = 10000; // 10 seconds
+    const ACCOUNT_CREATION_DELAY = 5000; // 5 seconds between accounts
+    
+    // Automation state
+    let isAutoCreating = false;
+    let currentReferralCode = null;
+    let accountsCreatedInBatch = 0;
 
     // Verification code patterns
     const VERIFICATION_CODE_PATTERNS = [
@@ -395,6 +402,179 @@
     }
 
     // ====================================
+    // FULL AUTOMATION FUNCTIONS
+    // ====================================
+
+    async function createAccountForReferral(referralCode) {
+        try {
+            console.log(`🚀 Creating account ${accountsCreatedInBatch + 1}/3 for referral: ${referralCode}`);
+            
+            // Create email
+            showNotification(`Creating account ${accountsCreatedInBatch + 1}/3...`, 'info');
+            const emailResult = await createNewEmail();
+            if (!emailResult.success) {
+                throw new Error('Failed to create email');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Fill form
+            showNotification('Filling form...', 'info');
+            await autoFillSignupForm(emailResult.email, emailResult.password);
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Try to find and click submit button
+            const submitButtons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:contains("Sign"), button:contains("Register"), button:contains("Submit")');
+            if (submitButtons.length > 0) {
+                submitButtons[0].click();
+                showNotification('Form submitted! Waiting for verification...', 'info');
+            }
+
+            // Wait for verification code (max 90 seconds)
+            let codeReceived = false;
+            for (let i = 0; i < 9; i++) {
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                await monitorInboxForVerification();
+                
+                const code = GM_getValue('verificationCode', null);
+                if (code) {
+                    codeReceived = true;
+                    showNotification(`Code received: ${code}`, 'success');
+                    await autoFillVerificationCode(code);
+                    break;
+                }
+            }
+
+            if (!codeReceived) {
+                showNotification('Timeout waiting for verification code', 'error');
+            }
+
+            // Increment counter
+            incrementReferralCount(referralCode);
+            accountsCreatedInBatch++;
+            
+            showNotification(`✅ Account ${accountsCreatedInBatch}/3 created!`, 'success');
+            
+            return true;
+        } catch (error) {
+            console.error('Error creating account:', error);
+            showNotification('Error: ' + error.message, 'error');
+            return false;
+        }
+    }
+
+    async function autoCreateThreeAccounts(referralCode) {
+        if (isAutoCreating) {
+            showNotification('Already creating accounts...', 'error');
+            return;
+        }
+
+        const link = referralLinks.find(l => l.code === referralCode);
+        if (!link) {
+            showNotification('Referral not found', 'error');
+            return;
+        }
+
+        if (link.accountsCreated >= MAX_ACCOUNTS_PER_REFERRAL) {
+            showNotification('This referral is already at 3/3!', 'error');
+            return;
+        }
+
+        isAutoCreating = true;
+        currentReferralCode = referralCode;
+        accountsCreatedInBatch = 0;
+
+        showNotification(`🚀 Starting automated creation for: ${referralCode}`, 'info');
+        updateMenuUI();
+
+        const accountsToCreate = MAX_ACCOUNTS_PER_REFERRAL - link.accountsCreated;
+
+        for (let i = 0; i < accountsToCreate; i++) {
+            if (!isAutoCreating) break; // User cancelled
+            
+            const success = await createAccountForReferral(referralCode);
+            
+            if (!success) {
+                showNotification(`Failed on account ${i + 1}. Stopping.`, 'error');
+                break;
+            }
+
+            // Wait before next account (except on last one)
+            if (i < accountsToCreate - 1) {
+                showNotification(`Waiting ${ACCOUNT_CREATION_DELAY/1000}s before next account...`, 'info');
+                await new Promise(resolve => setTimeout(resolve, ACCOUNT_CREATION_DELAY));
+            }
+        }
+
+        // Check if we completed all 3
+        const updatedLink = GM_getValue('referralLinks', []).find(l => l.code === referralCode);
+        if (updatedLink && updatedLink.accountsCreated >= MAX_ACCOUNTS_PER_REFERRAL) {
+            showReffBuffComplete(referralCode);
+        }
+
+        isAutoCreating = false;
+        currentReferralCode = null;
+        accountsCreatedInBatch = 0;
+        updateMenuUI();
+    }
+
+    function showReffBuffComplete(referralCode) {
+        // Big celebration notification
+        const celebration = document.createElement('div');
+        celebration.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 40px 60px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            z-index: 9999999;
+            font-family: Arial, sans-serif;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            animation: bounceIn 0.5s ease-out;
+        `;
+
+        celebration.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 20px;">🎉</div>
+            <div>ReffBuff Complete!</div>
+            <div style="font-size: 18px; margin-top: 15px; opacity: 0.9;">${referralCode}</div>
+            <div style="font-size: 16px; margin-top: 10px;">3/3 Accounts Created ✅</div>
+        `;
+
+        document.body.appendChild(celebration);
+
+        // Add bounce animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes bounceIn {
+                0% { transform: translate(-50%, -50%) scale(0); }
+                50% { transform: translate(-50%, -50%) scale(1.1); }
+                100% { transform: translate(-50%, -50%) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        setTimeout(() => {
+            celebration.style.animation = 'bounceOut 0.5s ease-out';
+            setTimeout(() => celebration.remove(), 500);
+        }, 5000);
+    }
+
+    function stopAutomation() {
+        isAutoCreating = false;
+        currentReferralCode = null;
+        accountsCreatedInBatch = 0;
+        showNotification('Automation stopped', 'info');
+        updateMenuUI();
+    }
+
+    // ====================================
     // UI FUNCTIONS
     // ====================================
 
@@ -441,81 +621,124 @@
                 0%, 100% { transform: scale(1); }
                 50% { transform: scale(1.05); }
             }
+            @keyframes float {
+                0%, 100% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+            }
             .tdjs-menu-btn:hover { transform: scale(1.05); }
             .tdjs-menu-btn:active { transform: scale(0.95); }
             .tdjs-referral-item:hover { background: #f5f5f5; }
         `;
         document.head.appendChild(style);
 
-        // Create floating menu
+        // Create floating ball button
+        const floatingBall = document.createElement('div');
+        floatingBall.id = 'tdjs-floating-ball';
+        floatingBall.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+            cursor: pointer;
+            z-index: 999998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            transition: all 0.3s ease;
+            animation: float 3s ease-in-out infinite;
+        `;
+        floatingBall.innerHTML = '🚀';
+        floatingBall.title = 'Tdjs-AutoReg V2 - Click to open';
+
+        // Hover effect
+        floatingBall.addEventListener('mouseenter', () => {
+            floatingBall.style.transform = 'scale(1.1)';
+            floatingBall.style.boxShadow = '0 12px 35px rgba(102, 126, 234, 0.7)';
+        });
+        floatingBall.addEventListener('mouseleave', () => {
+            floatingBall.style.transform = 'scale(1)';
+            floatingBall.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.5)';
+        });
+
+        // Create full menu (hidden by default)
         const menu = document.createElement('div');
         menu.id = 'tdjs-autoreg-menu';
         menu.style.cssText = `
             position: fixed;
-            top: 100px;
-            right: 20px;
+            bottom: 120px;
+            right: 30px;
             width: 380px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            z-index: 999998;
+            max-height: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.3);
+            z-index: 999997;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: white;
             overflow: hidden;
-            transition: all 0.3s ease;
+            display: none;
+            animation: slideInRight 0.3s ease-out;
         `;
-
-        // Draggable functionality
-        let isDragging = false;
-        let currentX, currentY, initialX, initialY;
 
         const header = document.createElement('div');
         header.style.cssText = `
-            background: rgba(255,255,255,0.1);
-            padding: 15px 20px;
-            cursor: move;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: white;
         `;
-
         header.innerHTML = `
-            <div>
-                <div style="font-size: 18px; font-weight: bold;">🚀 Tdjs-AutoReg V2</div>
-                <div style="font-size: 11px; opacity: 0.9;">Complete Automation + Referrals</div>
-            </div>
-            <div id="tdjs-minimize-btn" style="cursor: pointer; font-size: 20px; padding: 5px;">−</div>
+            <div style="font-size: 20px; font-weight: bold;">🚀 Tdjs-AutoReg V2</div>
+            <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">Full Automation + Referrals</div>
         `;
 
         const content = document.createElement('div');
         content.id = 'tdjs-menu-content';
         content.style.cssText = `
             padding: 20px;
-            background: white;
-            color: #333;
-            max-height: 600px;
+            max-height: 500px;
             overflow-y: auto;
+            color: #333;
         `;
 
         menu.appendChild(header);
         menu.appendChild(content);
-        document.body.appendChild(menu);
 
-        // Dragging logic
-        header.addEventListener('mousedown', (e) => {
+        // Toggle menu on ball click
+        floatingBall.addEventListener('click', () => {
+            if (menu.style.display === 'none' || menu.style.display === '') {
+                menu.style.display = 'block';
+                updateMenuUI();
+            } else {
+                menu.style.display = 'none';
+            }
+        });
+
+        // Draggable ball
+        let isDragging = false;
+        let startX, startY;
+        
+        floatingBall.addEventListener('mousedown', (e) => {
             isDragging = true;
-            initialX = e.clientX - menu.offsetLeft;
-            initialY = e.clientY - menu.offsetTop;
+            startX = e.clientX - floatingBall.offsetLeft;
+            startY = e.clientY - floatingBall.offsetTop;
         });
 
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-                menu.style.left = currentX + 'px';
-                menu.style.top = currentY + 'px';
+                floatingBall.style.left = (e.clientX - startX) + 'px';
+                floatingBall.style.top = (e.clientY - startY) + 'px';
+                floatingBall.style.right = 'auto';
+                floatingBall.style.bottom = 'auto';
+                
+                // Move menu too
                 menu.style.right = 'auto';
+                menu.style.bottom = 'auto';
+                menu.style.left = (e.clientX - startX) + 'px';
+                menu.style.top = (e.clientY - startY - menu.offsetHeight - 20) + 'px';
             }
         });
 
@@ -523,16 +746,8 @@
             isDragging = false;
         });
 
-        // Minimize functionality
-        document.getElementById('tdjs-minimize-btn').addEventListener('click', () => {
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                document.getElementById('tdjs-minimize-btn').textContent = '−';
-            } else {
-                content.style.display = 'none';
-                document.getElementById('tdjs-minimize-btn').textContent = '+';
-            }
-        });
+        document.body.appendChild(floatingBall);
+        document.body.appendChild(menu);
 
         updateMenuUI();
     }
@@ -610,28 +825,45 @@
                                 ${link.url}
                             </div>
                             ${link.accountsCreated < MAX_ACCOUNTS_PER_REFERRAL ? `
-                                <button class="tdjs-menu-btn" onclick="window.tdjsUseReferral('${link.code}')" 
-                                    style="width: 100%; margin-top: 8px; padding: 6px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px;">
-                                    🚀 Use This Referral
+                                <button class="tdjs-menu-btn" onclick="window.tdjsAutoCreateAccounts('${link.code}')" 
+                                    style="width: 100%; margin-top: 8px; padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;"
+                                    ${isAutoCreating && currentReferralCode === '${link.code}' ? 'disabled' : ''}>
+                                    ${isAutoCreating && currentReferralCode === '${link.code}' ? '⏳ Creating...' : '🚀 AUTO-CREATE 3 ACCOUNTS'}
                                 </button>
-                            ` : '<div style="font-size: 10px; color: #f44336; text-align: center; margin-top: 8px;">⚠️ Limit Reached</div>'}
+                            ` : '<div style="font-size: 11px; color: #f44336; text-align: center; margin-top: 8px; font-weight: bold;">🎉 ReffBuff COMPLETE</div>'}
                         </div>
                     `).join('')}
                 </div>
             ` : ''}
 
-            <!-- Main Actions -->
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button class="tdjs-menu-btn" id="create-email-btn" style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">
-                    ➕ Create New Email
-                </button>
-                <button class="tdjs-menu-btn" id="fill-form-btn" style="padding: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;" ${!currentEmail ? 'disabled' : ''}>
-                    🎯 Auto-fill Form
-                </button>
-                <button class="tdjs-menu-btn" id="check-inbox-btn" style="padding: 12px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;" ${!currentEmail ? 'disabled' : ''}>
-                    📬 Check Inbox
-                </button>
-            </div>
+            <!-- Automation Status -->
+            ${isAutoCreating ? `
+                <div style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; color: white; text-align: center;">
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">⏳ Automation Running...</div>
+                    <div style="font-size: 14px; margin-bottom: 15px;">
+                        Creating account ${accountsCreatedInBatch}/3 for: ${currentReferralCode}
+                    </div>
+                    <button class="tdjs-menu-btn" onclick="window.tdjsStopAutomation()" 
+                        style="padding: 10px 20px; background: white; color: #f5576c; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                        🛑 Stop Automation
+                    </button>
+                </div>
+            ` : ''}
+
+            <!-- Manual Actions (only show if not automating) -->
+            ${!isAutoCreating ? `
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="tdjs-menu-btn" id="create-email-btn" style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">
+                        ➕ Create New Email
+                    </button>
+                    <button class="tdjs-menu-btn" id="fill-form-btn" style="padding: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;" ${!currentEmail ? 'disabled' : ''}>
+                        🎯 Auto-fill Form
+                    </button>
+                    <button class="tdjs-menu-btn" id="check-inbox-btn" style="padding: 12px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;" ${!currentEmail ? 'disabled' : ''}>
+                        📬 Check Inbox
+                    </button>
+                </div>
+            ` : ''}
 
             <!-- Stats -->
             <div style="margin-top: 20px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 11px; color: #666; text-align: center;">
@@ -641,9 +873,12 @@
             </div>
         `;
 
+        // Global stop function
+        window.tdjsStopAutomation = stopAutomation;
+
         // Add event listeners
         const createBtn = document.getElementById('create-email-btn');
-        if (createBtn) {
+        if (createBtn && !isAutoCreating) {
             createBtn.addEventListener('click', async () => {
                 createBtn.disabled = true;
                 createBtn.textContent = '⏳ Creating...';
@@ -698,12 +933,19 @@
 
     // Global functions for onclick handlers
     window.tdjsDeleteReferral = deleteReferralLink;
-    window.tdjsUseReferral = (code) => {
+    window.tdjsAutoCreateAccounts = (code) => {
         const links = GM_getValue('referralLinks', []);
         const link = links.find(l => l.code === code);
         if (link && link.accountsCreated < MAX_ACCOUNTS_PER_REFERRAL) {
-            window.open(link.url, '_blank');
-            showNotification(`Opening referral link: ${link.code}`, 'success');
+            // First, navigate to the referral link
+            window.location.href = link.url;
+            
+            // Wait for page load, then start automation
+            setTimeout(() => {
+                autoCreateThreeAccounts(code);
+            }, 3000);
+        } else {
+            showNotification('This referral is already complete or not found!', 'error');
         }
     };
 
