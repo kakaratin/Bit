@@ -1,15 +1,22 @@
-// Popup script for extension UI
+// Tdjs-AutoReg - Popup script for extension UI
 document.addEventListener('DOMContentLoaded', async () => {
   const createEmailBtn = document.getElementById('createEmailBtn');
   const autoFillBtn = document.getElementById('autoFillBtn');
   const checkInboxBtn = document.getElementById('checkInboxBtn');
   const copyEmailBtn = document.getElementById('copyEmailBtn');
   const copyPasswordBtn = document.getElementById('copyPasswordBtn');
+  const fillCodeBtn = document.getElementById('fillCodeBtn');
   const emailStatus = document.getElementById('emailStatus');
   const inboxContainer = document.getElementById('inboxContainer');
+  const verificationSection = document.getElementById('verificationSection');
+  const verificationCode = document.getElementById('verificationCode');
+  const codeStatus = document.getElementById('codeStatus');
   
   // Load existing email if any
   loadEmailStatus();
+  
+  // Start monitoring for verification codes
+  startVerificationMonitoring();
   
   // Create Email button
   createEmailBtn.addEventListener('click', async () => {
@@ -132,9 +139,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
+  // Fill Verification Code button
+  fillCodeBtn.addEventListener('click', async () => {
+    const code = verificationCode.textContent;
+    if (code && code !== '-') {
+      fillCodeBtn.disabled = true;
+      fillCodeBtn.innerHTML = '<span class="btn-icon">⏳</span> Filling...';
+      
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const response = await chrome.tabs.sendMessage(tab.id, {
+          action: 'fillVerificationCode',
+          code: code
+        });
+        
+        if (response && response.success) {
+          fillCodeBtn.innerHTML = '<span class="btn-icon">✅</span> Filled!';
+          codeStatus.textContent = 'Code filled successfully!';
+          showNotification('Verification code filled!');
+        } else {
+          fillCodeBtn.innerHTML = '<span class="btn-icon">❌</span> Error';
+          codeStatus.textContent = 'Could not find code field';
+          showNotification('Could not find verification code field', 'error');
+        }
+      } catch (error) {
+        fillCodeBtn.innerHTML = '<span class="btn-icon">❌</span> Error';
+        codeStatus.textContent = 'Error: ' + error.message;
+        showNotification('Error: ' + error.message, 'error');
+      }
+      
+      setTimeout(() => {
+        fillCodeBtn.disabled = false;
+        fillCodeBtn.innerHTML = '<span class="btn-icon">🔐</span> Fill Verification Code';
+      }, 3000);
+    }
+  });
+  
+  // Monitor for verification codes
+  function startVerificationMonitoring() {
+    setInterval(async () => {
+      try {
+        const storage = await chrome.storage.local.get(['verificationCode']);
+        if (storage.verificationCode) {
+          showVerificationCode(storage.verificationCode);
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }, 3000); // Check every 3 seconds
+  }
+  
+  // Show verification code
+  function showVerificationCode(code) {
+    verificationSection.style.display = 'block';
+    verificationCode.textContent = code;
+    verificationCode.classList.add('code-highlight');
+    codeStatus.textContent = 'Code received! Click to fill.';
+    setTimeout(() => {
+      verificationCode.classList.remove('code-highlight');
+    }, 500);
+  }
+  
   // Helper functions
   async function loadEmailStatus() {
-    const storage = await chrome.storage.local.get(['email', 'password', 'token']);
+    const storage = await chrome.storage.local.get(['email', 'password', 'token', 'verificationCode']);
     
     if (storage.email) {
       showStatus(
@@ -147,6 +215,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       checkInboxBtn.disabled = false;
       copyEmailBtn.disabled = false;
       copyPasswordBtn.disabled = false;
+      
+      // Show verification code if available
+      if (storage.verificationCode) {
+        showVerificationCode(storage.verificationCode);
+      }
     }
   }
   
@@ -249,6 +322,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     content.querySelector('#closeModal').addEventListener('click', () => {
       modal.remove();
     });
+    
+    // Check if message contains verification code
+    const fullText = `${message.subject || ''} ${message.intro || ''} ${message.text || ''}`;
+    const codeMatch = fullText.match(/\b(\d{4,8})\b/);
+    if (codeMatch && message.verificationCode) {
+      showVerificationCode(message.verificationCode);
+      showNotification('Verification code detected!');
+    }
   }
   
   function showNotification(message, type = 'info') {
@@ -275,3 +356,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 3000);
   }
 });
+
+console.log('Tdjs-AutoReg popup loaded');

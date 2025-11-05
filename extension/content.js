@@ -1,6 +1,6 @@
-// Content script for auto-filling vsphone.com signup form
+// Tdjs-AutoReg - Content script for auto-filling vsphone.com signup form and verification codes
 
-console.log('Vsphone Auto-fill content script loaded');
+console.log('Tdjs-AutoReg content script loaded');
 
 // Function to wait for element to appear
 function waitForElement(selector, timeout = 10000) {
@@ -241,7 +241,89 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Listen for messages from popup
+// Function to detect verification code input fields
+function findVerificationCodeField() {
+  // Common selectors for verification/OTP fields
+  const selectors = [
+    'input[name*="code"]',
+    'input[name*="verify"]',
+    'input[name*="verification"]',
+    'input[name*="otp"]',
+    'input[name*="pin"]',
+    'input[id*="code"]',
+    'input[id*="verify"]',
+    'input[id*="verification"]',
+    'input[id*="otp"]',
+    'input[id*="pin"]',
+    'input[placeholder*="code" i]',
+    'input[placeholder*="verify" i]',
+    'input[placeholder*="verification" i]',
+    'input[placeholder*="OTP" i]',
+    'input[type="text"][maxlength="6"]',
+    'input[type="text"][maxlength="4"]',
+    'input[type="number"][maxlength="6"]',
+    'input[type="number"][maxlength="4"]'
+  ];
+  
+  for (const selector of selectors) {
+    const field = document.querySelector(selector);
+    if (field && field.offsetParent !== null) { // Check if visible
+      return field;
+    }
+  }
+  
+  return null;
+}
+
+// Function to auto-fill verification code
+async function autoFillVerificationCode(code) {
+  console.log('Attempting to auto-fill verification code:', code);
+  
+  // Try to find verification code field
+  let codeField = findVerificationCodeField();
+  
+  // If not found immediately, wait for it
+  if (!codeField) {
+    try {
+      await waitForElement('input[name*="code"], input[name*="verify"], input[placeholder*="code" i]', 15000);
+      codeField = findVerificationCodeField();
+    } catch (error) {
+      console.log('Verification code field not found on page');
+      return { success: false, message: 'Verification code field not found' };
+    }
+  }
+  
+  if (codeField) {
+    fillInput(codeField, code);
+    showNotification(`✅ Verification code filled: ${code}`, 'success');
+    
+    // Try to find and click submit/verify button
+    setTimeout(() => {
+      const submitButtons = [
+        'button[type="submit"]',
+        'button:contains("Verify")',
+        'button:contains("Submit")',
+        'button:contains("Confirm")',
+        'input[type="submit"]'
+      ];
+      
+      for (const selector of submitButtons) {
+        const button = document.querySelector(selector);
+        if (button && button.offsetParent !== null) {
+          console.log('Found submit button, clicking...');
+          button.click();
+          break;
+        }
+      }
+    }, 500);
+    
+    return { success: true, message: 'Verification code filled' };
+  }
+  
+  return { success: false, message: 'Could not find verification code field' };
+}
+
+// Listen for messages from popup and background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fillForm') {
     autoFillSignupForm(request.email, request.password).then(sendResponse);
@@ -255,6 +337,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       isSignupPage: hasEmailField && hasPasswordField,
       url: window.location.href
     });
+  } else if (request.action === 'verificationCodeReceived') {
+    // Automatically fill verification code when received
+    console.log('Received verification code from background:', request.code);
+    autoFillVerificationCode(request.code).then(sendResponse);
+    return true;
+  } else if (request.action === 'fillVerificationCode') {
+    // Manual verification code fill request
+    autoFillVerificationCode(request.code).then(sendResponse);
+    return true;
   }
 });
 
@@ -267,7 +358,7 @@ function addAutoFillButton() {
   if (hasEmailField && hasPasswordField && !document.getElementById('vsphone-autofill-btn')) {
     const button = document.createElement('button');
     button.id = 'vsphone-autofill-btn';
-    button.textContent = '🚀 Auto-fill with Mail.tm';
+    button.textContent = '🚀 Tdjs-AutoReg';
     button.style.cssText = `
       position: fixed;
       bottom: 20px;
@@ -310,7 +401,7 @@ function addAutoFillButton() {
           button.textContent = '✅ Done!';
           
           setTimeout(() => {
-            button.textContent = '🚀 Auto-fill with Mail.tm';
+            button.textContent = '🚀 Tdjs-AutoReg';
             button.disabled = false;
           }, 3000);
         } else {
@@ -321,7 +412,7 @@ function addAutoFillButton() {
         showNotification('Error: ' + error.message, 'error');
         button.textContent = '❌ Error';
         setTimeout(() => {
-          button.textContent = '🚀 Auto-fill with Mail.tm';
+          button.textContent = '🚀 Tdjs-AutoReg';
           button.disabled = false;
         }, 3000);
       }

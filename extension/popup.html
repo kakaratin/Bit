@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vsphone Auto Sign-up</title>
+  <title>Tdjs-AutoReg</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>🚀 Vsphone Auto Sign-up</h1>
-      <p class="subtitle">with Mail.tm</p>
+      <h1>🚀 Tdjs-AutoReg</h1>
+      <p class="subtitle">Auto sign-up & verification</p>
     </div>
     
     <div class="content">
@@ -24,6 +24,19 @@
           <span class="btn-icon">➕</span>
           Create New Email
         </button>
+      </div>
+      
+      <!-- Verification Code Section -->
+      <div class="section" id="verificationSection" style="display: none;">
+        <h2>🔐 Verification Code</h2>
+        <div class="status-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+          <p class="status-text" style="color: white; font-size: 24px; font-family: 'Courier New', monospace; letter-spacing: 3px; font-weight: bold;" id="verificationCode">-</p>
+        </div>
+        <button id="fillCodeBtn" class="btn btn-primary">
+          <span class="btn-icon">🔐</span>
+          Fill Verification Code
+        </button>
+        <p class="info-text" style="font-size: 11px; margin-top: 8px;" id="codeStatus">Monitoring inbox for code...</p>
       </div>
       
       <!-- Auto-fill Section -->

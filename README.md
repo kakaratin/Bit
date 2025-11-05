@@ -1,21 +1,23 @@
-# 🚀 Vsphone Automation Tools
+# 🚀 Tdjs-AutoReg - Complete Automation Suite
 
-This repository contains automation tools for working with temporary email services and cloud phone platforms.
+This repository contains powerful automation tools for working with temporary email services and cloud phone platforms.
 
 ## 📦 Projects
 
-### 1. Browser Extension - Vsphone Auto Sign-up
+### 1. Browser Extension - Tdjs-AutoReg
 **Location**: `/extension/`
 
-A Chrome/Edge/Brave/Firefox browser extension that automatically fills sign-up forms on cloud.vsphone.com using temporary email addresses from Mail.tm.
+A Chrome/Edge/Brave/Firefox browser extension that automatically fills sign-up forms on cloud.vsphone.com using temporary email addresses from Mail.tm, **including automatic verification code detection and filling**.
 
-**Features**:
+**✨ Key Features**:
 - 📧 Automatic temporary email creation via Mail.tm API
 - 🎯 One-click form auto-fill
+- 🔐 **NEW: Automatic verification code extraction**
+- ⚡ **NEW: Auto-fill verification codes**
 - 📬 Built-in inbox viewer
-- 🔄 Real-time email monitoring
+- 🔄 Real-time email monitoring (every 10 seconds)
 - 📋 Quick copy credentials
-- 🎨 Beautiful, modern UI
+- 🎨 Beautiful, modern UI with branding
 
 **Quick Start**:
 1. Navigate to the `extension/` folder

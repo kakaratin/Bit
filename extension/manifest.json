@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Vsphone Auto Sign-up with Mail.tm",
-  "version": "1.0.0",
-  "description": "Automatically fills vsphone.com sign-up forms using temporary emails from mail.tm",
+  "name": "Tdjs-AutoReg",
+  "version": "1.1.0",
+  "description": "Tdjs-AutoReg: Automatically fills sign-up forms and verification codes using temporary emails from mail.tm",
   "permissions": [
     "storage",
     "activeTab",
