@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Tdjs-AutoReg V2 - Vsphone Auto Sign-up with Referral System
 // @namespace    http://tampermonkey.net/
-// @version      2.1.0
-// @description  FULLY AUTOMATED: Click referral → 3 accounts created automatically → ReffBuff complete! Floating ball menu design.
+// @version      2.1.1
+// @description  FULLY AUTOMATED: Click referral → 3 accounts created automatically → ReffBuff complete! Floating ball menu. BUGFIX: Delete button now works!
 // @author       Tdjs
 // @match        https://cloud.vsphone.com/*
 // @match        https://www.vsphone.com/*
@@ -816,7 +816,7 @@
                                     <span style="font-size: 11px; padding: 3px 8px; background: ${link.accountsCreated >= MAX_ACCOUNTS_PER_REFERRAL ? '#f44336' : '#4CAF50'}; color: white; border-radius: 10px;">
                                         ${link.accountsCreated}/${MAX_ACCOUNTS_PER_REFERRAL}
                                     </span>
-                                    <button class="tdjs-menu-btn" onclick="window.tdjsDeleteReferral('${link.code}')" style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">
+                                    <button class="tdjs-menu-btn tdjs-delete-btn" data-code="${link.code}" style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px;">
                                         🗑️
                                     </button>
                                 </div>
@@ -876,6 +876,19 @@
         // Global stop function
         window.tdjsStopAutomation = stopAutomation;
 
+        // Add delete button listeners (for all delete buttons)
+        const deleteButtons = document.querySelectorAll('.tdjs-delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const code = e.target.getAttribute('data-code') || e.target.closest('button').getAttribute('data-code');
+                if (code) {
+                    if (confirm(`Delete referral ${code}?`)) {
+                        deleteReferralLink(code);
+                    }
+                }
+            });
+        });
+
         // Add event listeners
         const createBtn = document.getElementById('create-email-btn');
         if (createBtn && !isAutoCreating) {
@@ -931,8 +944,14 @@
         }
     }
 
-    // Global functions for onclick handlers
-    window.tdjsDeleteReferral = deleteReferralLink;
+    // Global functions for onclick handlers - Make them REALLY global
+    window.tdjsDeleteReferral = (code) => {
+        console.log('Delete referral called for:', code);
+        if (confirm(`Delete referral ${code}?`)) {
+            deleteReferralLink(code);
+        }
+    };
+    
     window.tdjsAutoCreateAccounts = (code) => {
         const links = GM_getValue('referralLinks', []);
         const link = links.find(l => l.code === code);
