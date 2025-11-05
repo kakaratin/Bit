@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Tdjs-AutoReg V2 - Vsphone Auto Sign-up with Referral System
 // @namespace    http://tampermonkey.net/
-// @version      2.1.1
-// @description  FULLY AUTOMATED: Click referral → 3 accounts created automatically → ReffBuff complete! Floating ball menu. BUGFIX: Delete button now works!
+// @version      2.2.0
+// @description  REFFBUFF SYSTEM: Add YOUR referral links → Script creates buff accounts → Auto-logout → Cycles through ALL referrals! TRUE automation!
 // @author       Tdjs
 // @match        https://cloud.vsphone.com/*
 // @match        https://www.vsphone.com/*
@@ -26,12 +26,14 @@
     const PASSWORD = 'TdjsCloudPhone0909';
     const MAX_ACCOUNTS_PER_REFERRAL = 3;
     const INBOX_CHECK_INTERVAL = 10000; // 10 seconds
-    const ACCOUNT_CREATION_DELAY = 5000; // 5 seconds between accounts
+    const ACCOUNT_CREATION_DELAY = 3000; // 3 seconds between accounts
+    const LOGOUT_DELAY = 2000; // 2 seconds for logout
     
     // Automation state
     let isAutoCreating = false;
     let currentReferralCode = null;
     let accountsCreatedInBatch = 0;
+    let isCyclingReferrals = false; // New: for cycling through multiple referrals
 
     // Verification code patterns
     const VERIFICATION_CODE_PATTERNS = [
@@ -405,12 +407,54 @@
     // FULL AUTOMATION FUNCTIONS
     // ====================================
 
+    async function logoutCurrentAccount() {
+        try {
+            console.log('🚪 Logging out current account...');
+            showNotification('Logging out...', 'info');
+            
+            // Try multiple logout methods
+            const logoutSelectors = [
+                'a[href*="logout"]',
+                'button:contains("Logout")',
+                'button:contains("Log out")',
+                'a:contains("Logout")',
+                'a:contains("Log out")',
+                '[onclick*="logout"]'
+            ];
+            
+            for (const selector of logoutSelectors) {
+                const logoutBtn = document.querySelector(selector);
+                if (logoutBtn) {
+                    logoutBtn.click();
+                    await new Promise(resolve => setTimeout(resolve, LOGOUT_DELAY));
+                    showNotification('✅ Logged out!', 'success');
+                    return true;
+                }
+            }
+            
+            // If no logout button found, clear cookies/storage
+            console.log('No logout button found, clearing session...');
+            document.cookie.split(";").forEach(c => {
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            
+            return true;
+        } catch (error) {
+            console.error('Error logging out:', error);
+            return false;
+        }
+    }
+
     async function createAccountForReferral(referralCode) {
         try {
-            console.log(`🚀 Creating account ${accountsCreatedInBatch + 1}/3 for referral: ${referralCode}`);
+            const links = GM_getValue('referralLinks', []);
+            const link = links.find(l => l.code === referralCode);
+            const currentCount = link ? link.accountsCreated : 0;
+            
+            console.log(`🚀 Creating buff account ${currentCount + 1}/3 for: ${referralCode}`);
             
             // Create email
-            showNotification(`Creating account ${accountsCreatedInBatch + 1}/3...`, 'info');
+            showNotification(`Creating buff account ${currentCount + 1}/3 for ${referralCode}...`, 'info');
             const emailResult = await createNewEmail();
             if (!emailResult.success) {
                 throw new Error('Failed to create email');
@@ -442,19 +486,30 @@
                     codeReceived = true;
                     showNotification(`Code received: ${code}`, 'success');
                     await autoFillVerificationCode(code);
+                    
+                    // Wait for verification to complete
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                     break;
                 }
             }
 
             if (!codeReceived) {
                 showNotification('Timeout waiting for verification code', 'error');
+                return false;
             }
 
             // Increment counter
             incrementReferralCount(referralCode);
             accountsCreatedInBatch++;
             
-            showNotification(`✅ Account ${accountsCreatedInBatch}/3 created!`, 'success');
+            const updatedLinks = GM_getValue('referralLinks', []);
+            const updatedLink = updatedLinks.find(l => l.code === referralCode);
+            const newCount = updatedLink ? updatedLink.accountsCreated : 0;
+            
+            showNotification(`✅ Buff account ${newCount}/3 created for ${referralCode}!`, 'success');
+            
+            // LOGOUT after account is created
+            await logoutCurrentAccount();
             
             return true;
         } catch (error) {
@@ -462,6 +517,100 @@
             showNotification('Error: ' + error.message, 'error');
             return false;
         }
+    }
+
+    function getNextAvailableReferralLink() {
+        const links = GM_getValue('referralLinks', []);
+        // Find first link that has slots available
+        return links.find(l => l.accountsCreated < MAX_ACCOUNTS_PER_REFERRAL);
+    }
+
+    async function cycleAllReferrals() {
+        if (isCyclingReferrals) {
+            showNotification('Already cycling referrals...', 'error');
+            return;
+        }
+
+        isCyclingReferrals = true;
+        showNotification('🔄 Starting ReffBuff cycle for ALL referrals!', 'success');
+        
+        let nextLink = getNextAvailableReferralLink();
+        let totalCreated = 0;
+        
+        while (nextLink && isCyclingReferrals) {
+            console.log(`🎯 Buffing referral: ${nextLink.code} (${nextLink.accountsCreated}/3)`);
+            showNotification(`🎯 Buffing: ${nextLink.code} (${nextLink.accountsCreated}/3)`, 'info');
+            
+            // Navigate to this referral link
+            showNotification(`Navigating to referral link...`, 'info');
+            window.location.href = nextLink.url;
+            
+            // Wait for page load
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Create one account for this referral
+            const success = await createAccountForReferral(nextLink.code);
+            
+            if (success) {
+                totalCreated++;
+                
+                // Check if this referral is now complete
+                const updatedLinks = GM_getValue('referralLinks', []);
+                const updatedLink = updatedLinks.find(l => l.code === nextLink.code);
+                
+                if (updatedLink && updatedLink.accountsCreated >= MAX_ACCOUNTS_PER_REFERRAL) {
+                    showReffBuffComplete(nextLink.code);
+                }
+            } else {
+                showNotification(`Failed to create account for ${nextLink.code}`, 'error');
+            }
+            
+            // Wait before next referral
+            await new Promise(resolve => setTimeout(resolve, ACCOUNT_CREATION_DELAY));
+            
+            // Get next available referral
+            nextLink = getNextAvailableReferralLink();
+        }
+        
+        // All done!
+        isCyclingReferrals = false;
+        
+        if (totalCreated > 0) {
+            showBigCelebration(`🎉 ReffBuff Complete!\n${totalCreated} total buff accounts created!`);
+        } else {
+            showNotification('All referrals are at 3/3! Add more referrals to continue.', 'info');
+        }
+        
+        updateMenuUI();
+    }
+
+    function showBigCelebration(message) {
+        const celebration = document.createElement('div');
+        celebration.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 50px 70px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 25px;
+            box-shadow: 0 15px 60px rgba(0,0,0,0.6);
+            z-index: 9999999;
+            font-family: Arial, sans-serif;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            animation: bounceIn 0.6s ease-out;
+            white-space: pre-line;
+        `;
+        celebration.textContent = message;
+        document.body.appendChild(celebration);
+        
+        setTimeout(() => {
+            celebration.style.animation = 'bounceOut 0.5s ease-out';
+            setTimeout(() => celebration.remove(), 500);
+        }, 6000);
     }
 
     async function autoCreateThreeAccounts(referralCode) {
@@ -485,7 +634,7 @@
         currentReferralCode = referralCode;
         accountsCreatedInBatch = 0;
 
-        showNotification(`🚀 Starting automated creation for: ${referralCode}`, 'info');
+        showNotification(`🚀 Starting ReffBuff for: ${referralCode}`, 'info');
         updateMenuUI();
 
         const accountsToCreate = MAX_ACCOUNTS_PER_REFERRAL - link.accountsCreated;
@@ -493,16 +642,23 @@
         for (let i = 0; i < accountsToCreate; i++) {
             if (!isAutoCreating) break; // User cancelled
             
+            // Navigate to referral link before each account
+            if (i > 0) {
+                showNotification(`Navigating to referral link again...`, 'info');
+                window.location.href = link.url;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+            
             const success = await createAccountForReferral(referralCode);
             
             if (!success) {
-                showNotification(`Failed on account ${i + 1}. Stopping.`, 'error');
+                showNotification(`Failed on buff account ${i + 1}. Stopping.`, 'error');
                 break;
             }
 
             // Wait before next account (except on last one)
             if (i < accountsToCreate - 1) {
-                showNotification(`Waiting ${ACCOUNT_CREATION_DELAY/1000}s before next account...`, 'info');
+                showNotification(`Waiting ${ACCOUNT_CREATION_DELAY/1000}s before next buff...`, 'info');
                 await new Promise(resolve => setTimeout(resolve, ACCOUNT_CREATION_DELAY));
             }
         }
@@ -544,21 +700,29 @@
             <div style="font-size: 48px; margin-bottom: 20px;">🎉</div>
             <div>ReffBuff Complete!</div>
             <div style="font-size: 18px; margin-top: 15px; opacity: 0.9;">${referralCode}</div>
-            <div style="font-size: 16px; margin-top: 10px;">3/3 Accounts Created ✅</div>
+            <div style="font-size: 16px; margin-top: 10px;">3/3 Buff Accounts ✅</div>
         `;
 
         document.body.appendChild(celebration);
 
-        // Add bounce animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes bounceIn {
-                0% { transform: translate(-50%, -50%) scale(0); }
-                50% { transform: translate(-50%, -50%) scale(1.1); }
-                100% { transform: translate(-50%, -50%) scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
+        // Add bounce animation if not exists
+        if (!document.getElementById('tdjs-bounce-style')) {
+            const style = document.createElement('style');
+            style.id = 'tdjs-bounce-style';
+            style.textContent = `
+                @keyframes bounceIn {
+                    0% { transform: translate(-50%, -50%) scale(0); }
+                    50% { transform: translate(-50%, -50%) scale(1.1); }
+                    100% { transform: translate(-50%, -50%) scale(1); }
+                }
+                @keyframes bounceOut {
+                    0% { transform: translate(-50%, -50%) scale(1); }
+                    50% { transform: translate(-50%, -50%) scale(1.1); }
+                    100% { transform: translate(-50%, -50%) scale(0); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
         setTimeout(() => {
             celebration.style.animation = 'bounceOut 0.5s ease-out';
@@ -568,11 +732,15 @@
 
     function stopAutomation() {
         isAutoCreating = false;
+        isCyclingReferrals = false;
         currentReferralCode = null;
         accountsCreatedInBatch = 0;
         showNotification('Automation stopped', 'info');
         updateMenuUI();
     }
+    
+    // Expose cycle function globally
+    window.tdjsCycleAllReferrals = cycleAllReferrals;
 
     // ====================================
     // UI FUNCTIONS
@@ -791,9 +959,9 @@
 
             <!-- AddReff Section -->
             <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); border-radius: 10px;">
-                <div style="font-weight: 600; margin-bottom: 10px; color: #d84315;">🎁 AddReff - Referral Manager</div>
+                <div style="font-weight: 600; margin-bottom: 10px; color: #d84315;">🎁 AddReff - Buff Your Accounts!</div>
                 <div style="font-size: 11px; margin-bottom: 10px; color: #d84315;">
-                    Add referral links (max 3 accounts per link)
+                    Add referral links from YOUR main accounts (3 buff accounts per link)
                 </div>
                 <input type="text" id="referral-input" placeholder="https://www.vsphone.com/invite/..." 
                     style="width: 100%; padding: 8px; border: 2px solid #d84315; border-radius: 6px; margin-bottom: 8px; font-size: 12px;">
@@ -801,6 +969,20 @@
                     ➕ Add Referral Link
                 </button>
             </div>
+            
+            <!-- Cycle ALL Referrals Button -->
+            ${links.length > 0 ? `
+                <div style="margin-bottom: 20px;">
+                    <button class="tdjs-menu-btn" onclick="window.tdjsCycleAllReferrals()" 
+                        style="width: 100%; padding: 15px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px;"
+                        ${isCyclingReferrals ? 'disabled' : ''}>
+                        ${isCyclingReferrals ? '🔄 Cycling Referrals...' : '🔄 BUFF ALL REFERRALS (Auto-Cycle)'}
+                    </button>
+                    <div style="font-size: 10px; color: #666; text-align: center; margin-top: 5px;">
+                        Creates buff accounts for ALL referrals automatically!
+                    </div>
+                </div>
+            ` : ''}
 
             <!-- Referral Links List -->
             ${links.length > 0 ? `
