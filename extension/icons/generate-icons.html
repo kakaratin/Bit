@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Extension Icons</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      margin: 10px;
+    }
+    .container {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Extension Icon Generator</h1>
+  <p>Right-click on each icon and "Save image as..." to save as PNG</p>
+  
+  <div class="container">
+    <h3>16x16</h3>
+    <canvas id="icon16" width="16" height="16"></canvas>
+  </div>
+  
+  <div class="container">
+    <h3>48x48</h3>
+    <canvas id="icon48" width="48" height="48"></canvas>
+  </div>
+  
+  <div class="container">
+    <h3>128x128</h3>
+    <canvas id="icon128" width="128" height="128"></canvas>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      
+      // Draw rounded rectangle background
+      ctx.fillStyle = gradient;
+      const radius = size * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(size - radius, 0);
+      ctx.quadraticCurveTo(size, 0, size, radius);
+      ctx.lineTo(size, size - radius);
+      ctx.quadraticCurveTo(size, size, size - radius, size);
+      ctx.lineTo(radius, size);
+      ctx.quadraticCurveTo(0, size, 0, size - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw email icon
+      ctx.fillStyle = 'white';
+      const padding = size * 0.2;
+      const envelopeWidth = size - (padding * 2);
+      const envelopeHeight = envelopeWidth * 0.7;
+      const envelopeX = padding;
+      const envelopeY = (size - envelopeHeight) / 2;
+      
+      // Envelope body
+      ctx.fillRect(envelopeX, envelopeY, envelopeWidth, envelopeHeight);
+      
+      // Envelope flap
+      ctx.fillStyle = '#e0e0e0';
+      ctx.beginPath();
+      ctx.moveTo(envelopeX, envelopeY);
+      ctx.lineTo(envelopeX + envelopeWidth / 2, envelopeY + envelopeHeight / 2);
+      ctx.lineTo(envelopeX + envelopeWidth, envelopeY);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Rocket emoji effect (simplified)
+      if (size >= 48) {
+        ctx.font = `bold ${size * 0.3}px Arial`;
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚀', size * 0.75, size * 0.3);
+      }
+    }
+    
+    // Draw icons
+    drawIcon(document.getElementById('icon16'));
+    drawIcon(document.getElementById('icon48'));
+    drawIcon(document.getElementById('icon128'));
+    
+    // Auto-download icons
+    function downloadIcon(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+    
+    // Uncomment to auto-download:
+    // setTimeout(() => {
+    //   downloadIcon('icon16', 'icon16.png');
+    //   downloadIcon('icon48', 'icon48.png');
+    //   downloadIcon('icon128', 'icon128.png');
+    // }, 1000);
+  </script>
+</body>
+</html>
