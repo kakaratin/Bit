@@ -2,12 +2,28 @@
 
 This repository contains powerful automation tools for working with temporary email services and cloud phone platforms.
 
-## 📦 Projects
+## 📦 Two Powerful Versions
 
-### 1. Browser Extension - Tdjs-AutoReg
+### 🎯 Version 1: Browser Extension
 **Location**: `/extension/`
+**Platform**: Chrome, Edge, Brave, Firefox
 
-A Chrome/Edge/Brave/Firefox browser extension that automatically fills sign-up forms on cloud.vsphone.com using temporary email addresses from Mail.tm, **including automatic verification code detection and filling**.
+A browser extension that automatically fills sign-up forms on cloud.vsphone.com using temporary email addresses from Mail.tm, **including automatic verification code detection and filling**.
+
+### 🎁 Version 2: Tampermonkey Userscript (NEW!)
+**Location**: `/tampermonkey-v2/`
+**Platform**: Universal (any browser with Tampermonkey)
+
+**ALL V1 features PLUS:**
+- 🎁 **AddReff System**: Manage referral links
+- 📊 **3-Account Tracking**: Per referral link
+- 🎨 **Floating Menu**: Draggable interface
+- 📈 **Statistics Dashboard**: Live counts
+- 🗑️ **Referral Management**: Add/delete links
+
+---
+
+## ✨ Core Features (Both Versions)
 
 **✨ Key Features**:
 - 📧 Automatic temporary email creation via Mail.tm API
@@ -19,13 +35,21 @@ A Chrome/Edge/Brave/Firefox browser extension that automatically fills sign-up f
 - 📋 Quick copy credentials
 - 🎨 Beautiful, modern UI with branding
 
-**Quick Start**:
+**V1 Quick Start**:
 1. Navigate to the `extension/` folder
 2. Follow the installation instructions in `extension/README.md`
 3. Load the extension in your browser
 4. Visit cloud.vsphone.com and click the auto-fill button!
 
-[📖 Read full extension documentation →](extension/README.md)
+**V2 Quick Start**:
+1. Install Tampermonkey extension
+2. Install the script from `tampermonkey-v2/Tdjs-AutoReg-V2.user.js`
+3. Visit cloud.vsphone.com
+4. Floating menu appears automatically!
+
+[📖 Read V1 documentation →](extension/README.md)
+[📖 Read V2 documentation →](tampermonkey-v2/README.md)
+[🆚 Compare Versions →](VERSIONS_COMPARISON.md)
 
 ### 2. Telegram Bot - Mail.tm Integration
 **Location**: `telegram-mailtm-bot.js`
