@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tdjs-AutoReg V3.1 - Mobile Optimized
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
+// @version      3.1.1
 // @description  Mobile-friendly floating ball UI! Clean, cool & doesn't block forms!
 // @author       Tdjs
 // @match        https://cloud.vsphone.com/*
@@ -479,8 +479,11 @@
         menu.innerHTML = `
             <div style="padding: 20px;">
                 <!-- Header -->
-                <div style="text-align: center; margin-bottom: 20px;">
+                <div style="position: relative; text-align: center; margin-bottom: 20px;">
                     <div style="width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 15px;"></div>
+                    <button id="tdjs-close-btn" style="position: absolute; top: 0; right: 0; width: 40px; height: 40px; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 50%; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+                        ✕
+                    </button>
                     <h1 style="margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 28px; font-weight: 900;">
                         Tdjs-AutoReg
                     </h1>
@@ -496,26 +499,49 @@
 
         document.body.appendChild(menu);
 
-        // Toggle menu
+        // Function to close menu
+        const closeMenu = () => {
+            menuOpen = false;
+            menu.style.animation = 'slideDown 0.3s ease-out';
+            setTimeout(() => {
+                menu.style.display = 'none';
+                ball.style.transform = 'scale(1)';
+            }, 300);
+        };
+
+        // Function to open menu
+        const openMenu = () => {
+            menuOpen = true;
+            menu.style.display = 'block';
+            menu.style.animation = 'slideUp 0.3s ease-out';
+            ball.style.transform = 'scale(0.9)';
+        };
+
+        // Toggle menu with ball
         ball.addEventListener('click', () => {
-            menuOpen = !menuOpen;
             if (menuOpen) {
-                menu.style.display = 'block';
-                menu.style.animation = 'slideUp 0.3s ease-out';
-                ball.style.transform = 'scale(0.9)';
+                closeMenu();
             } else {
-                menu.style.animation = 'slideDown 0.3s ease-out';
-                setTimeout(() => {
-                    menu.style.display = 'none';
-                    ball.style.transform = 'scale(1)';
-                }, 300);
+                openMenu();
             }
         });
+
+        // Close button
+        setTimeout(() => {
+            const closeBtn = document.getElementById('tdjs-close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeMenu);
+                closeBtn.addEventListener('touchstart', (e) => {
+                    e.stopPropagation();
+                    closeMenu();
+                });
+            }
+        }, 100);
 
         // Close on background tap
         menu.addEventListener('click', (e) => {
             if (e.target === menu) {
-                ball.click();
+                closeMenu();
             }
         });
 
