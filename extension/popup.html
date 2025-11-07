@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tdjs-AutoReg</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Tdjs-AutoReg</h1>
+      <p class="subtitle">Auto sign-up & verification</p>
+    </div>
+    
+    <div class="content">
+      <!-- Email Section -->
+      <div class="section">
+        <h2>📧 Temporary Email</h2>
+        <div id="emailStatus" class="status-box">
+          <p class="status-text">No email created yet</p>
+        </div>
+        <button id="createEmailBtn" class="btn btn-primary">
+          <span class="btn-icon">➕</span>
+          Create New Email
+        </button>
+      </div>
+      
+      <!-- Verification Code Section -->
+      <div class="section" id="verificationSection" style="display: none;">
+        <h2>🔐 Verification Code</h2>
+        <div class="status-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+          <p class="status-text" style="color: white; font-size: 24px; font-family: 'Courier New', monospace; letter-spacing: 3px; font-weight: bold;" id="verificationCode">-</p>
+        </div>
+        <button id="fillCodeBtn" class="btn btn-primary">
+          <span class="btn-icon">🔐</span>
+          Fill Verification Code
+        </button>
+        <p class="info-text" style="font-size: 11px; margin-top: 8px;" id="codeStatus">Monitoring inbox for code...</p>
+      </div>
+      
+      <!-- Auto-fill Section -->
+      <div class="section">
+        <h2>✨ Auto-fill Form</h2>
+        <p class="info-text">Navigate to cloud.vsphone.com signup page first</p>
+        <button id="autoFillBtn" class="btn btn-secondary" disabled>
+          <span class="btn-icon">🎯</span>
+          Auto-fill Sign-up Form
+        </button>
+      </div>
+      
+      <!-- Inbox Section -->
+      <div class="section">
+        <h2>📬 Inbox</h2>
+        <div id="inboxContainer">
+          <p class="info-text">Create an email to check inbox</p>
+        </div>
+        <button id="checkInboxBtn" class="btn btn-secondary" disabled>
+          <span class="btn-icon">🔄</span>
+          Check Inbox
+        </button>
+      </div>
+      
+      <!-- Actions -->
+      <div class="actions">
+        <button id="copyEmailBtn" class="btn btn-small" disabled>
+          📋 Copy Email
+        </button>
+        <button id="copyPasswordBtn" class="btn btn-small" disabled>
+          🔑 Copy Password
+        </button>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>Made with ❤️ for automation</p>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
